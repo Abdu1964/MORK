@@ -31,5 +31,5 @@ freeze = { version="0.1.1", git="https://github.com/luketpeterson/Freeze.git" } 
 gxhash = {version="3.4.1", git="https://github.com/luketpeterson/gxhash/"} # for dag_serialization
 
 [workspace.dependencies.pathmap]
-path = "../PathMap"
+path = "/tmp/pathmap_build/PathMap"
 features = ["jemalloc", "arena_compact"]

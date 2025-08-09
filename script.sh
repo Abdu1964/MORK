@@ -26,7 +26,7 @@ MORK_DIR="/app/MORK"
 
 git checkout -f server
 ls
-cd "/server"
+cd "./server"
 echo "Building MORK server release..."
 cargo build --release
 
