@@ -1,5 +1,21 @@
-
 # MeTTa Optimal Reduction Kernel [WIP]
+
+## Deployment
+First, make the script executable:
+```bash
+chmod +x script.sh
+```
+
+Then build the docker image
+```docker
+docker build -t mork_pathmap .
+```
+
+Then run the docker container
+replace the $path with the path of the customspace builder
+```docker
+docker run -d --name mork_container -p 8231:8231 -v $path/output:/shared/output mork_pathmap
+```
 
 **A blazing fast hypergraph processing kernel for Hyperon**
 
@@ -30,7 +46,7 @@ Support for bidirectional pattern matching and unification of S-expressions with
 A high end workstation should be able to load, query, and transform a space with over a billion atoms without running out of memory or hanging for hours
 
 - JSON interop\
-Load data from json and querying using (a subset of) [JSONPath](https://datatracker.ietf.org/doc/rfc9535/) 
+Load data from json and querying using (a subset of) [JSONPath](https://datatracker.ietf.org/doc/rfc9535/)
 
 #### Tasks:
 
@@ -113,7 +129,7 @@ Update hyperon-experimental’s Python bindings to allow the MeTTa interpreter t
 Run MeTTa from C/C++, and use C/C++ to implement native grounded objects
 
 - WASM API\
-Integrate a bridge to allow grounded objects to be implemented using WASM. 
+Integrate a bridge to allow grounded objects to be implemented using WASM.
 
 - Complete MeTTa stdlib support\
 Arithmetic and string operations, etc.
@@ -162,4 +178,3 @@ An implementation of triemap interactions in Scala, serving as a proof-of-concep
 
 - [Triemap derivation for Rust](https://github.com/mkovaxx/triemap-rs)\
 A crate exposing a macro to derive a triemap over a Rust enum or struct type
-
