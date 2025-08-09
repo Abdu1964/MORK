@@ -23,7 +23,7 @@ const SERVER_ADDR_ENV_VAR: &str = "MORK_SERVER_ADDR";
 const SERVER_PORT_ENV_VAR: &str = "MORK_SERVER_PORT";
 const RESOURCE_DIR_ENV_VAR: &str = "MORK_SERVER_DIR";
 const DEFAULT_SERVER_ADDR: &str = "127.0.0.1";
-const DEFAULT_SERVER_PORT: &str = "8000";
+const DEFAULT_SERVER_PORT: &str = "8231";
 const DEFAULT_RESOURCE_DIR: &str = "/tmp/mork_server_files";
 
 mod commands;
