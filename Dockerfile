@@ -10,6 +10,8 @@ COPY . /app
 
 WORKDIR /app
 
+ENV RUSTFLAGS="-C target-feature=+aes,+sse2"
+
 # Make the script executable
 RUN chmod +x script.sh
 
