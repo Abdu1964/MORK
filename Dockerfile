@@ -5,7 +5,7 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
     git
-
+ENV RUSTFLAGS="-C target-feature=+aes,+sse2"
 COPY . /app
 
 WORKDIR /app
