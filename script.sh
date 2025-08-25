@@ -31,4 +31,4 @@ echo "Building MORK server release..."
 cargo build --release
 
 echo "Running MORK server..."
-../target/release/mork_server
+./target/release/mork_server
