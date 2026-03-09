@@ -299,8 +299,7 @@ fn referential_transition<Z : ZipperMoving + Zipper + ZipperAbsolutePath, F: FnM
 
         while let Some(b) = it.next() {
             if let Tag::SymbolSize(s) = byte_item(b) {
-                let buf = [b];
-                if loc.descend_to(buf) {
+                if loc.descend_to_existing_byte(b) {
                     let lastv = *last; last = last.offset(-1);
                     last = last.offset(1); *last = s;
                     last = last.offset(1); *last = lastv;
@@ -308,8 +307,8 @@ fn referential_transition<Z : ZipperMoving + Zipper + ZipperAbsolutePath, F: FnM
                     last = last.offset(-1);
                     last = last.offset(-1);
                     last = last.offset(1); *last = lastv;
+                    loc.ascend_byte();
                 }
-                loc.ascend_byte();
             } else {
                 unreachable!("no symbol size next")
             }
@@ -327,14 +326,13 @@ fn referential_transition<Z : ZipperMoving + Zipper + ZipperAbsolutePath, F: FnM
         let mut it = m.iter();
 
         while let Some(b) = it.next() {
-            let buf = [b];
-            if loc.descend_to(buf) {
+            if loc.descend_to_existing_byte(b) {
                 let intro = if matches!(byte_item(b), Tag::NewVar) {
                     introduced + 1
                 } else { introduced };
                 referential_transition(last, loc, references, intro, f);
+                loc.ascend_byte();
             }
-            loc.ascend_byte();
         }
     };
     (ITER_ARITIES $recursive:expr) => {
@@ -343,8 +341,7 @@ fn referential_transition<Z : ZipperMoving + Zipper + ZipperAbsolutePath, F: FnM
 
         while let Some(b) = it.next() {
             if let Tag::Arity(a) = byte_item(b) {
-                let buf = [b];
-                if loc.descend_to(buf) {
+                if loc.descend_to_existing_byte(b) {
                     let lastv = *last; last = last.offset(-1);
                     last = last.offset(1); *last = a;
                     last = last.offset(1); *last = lastv;
@@ -352,8 +349,8 @@ fn referential_transition<Z : ZipperMoving + Zipper + ZipperAbsolutePath, F: FnM
                     last = last.offset(-1);
                     last = last.offset(-1);
                     last = last.offset(1); *last = lastv;
+                    loc.ascend_byte();
                 }
-                loc.ascend_byte();
             } else {
                 unreachable!()
             }
@@ -375,13 +372,12 @@ fn referential_transition<Z : ZipperMoving + Zipper + ZipperAbsolutePath, F: FnM
         let mut v = [0u8; 64];
         for i in 0..size { *v.get_unchecked_mut(i as usize) = *last; last = last.offset(-1); }
 
-        if loc.descend_to_byte(Tag::SymbolSize(size).byte()) {
-            if loc.descend_to(&v[..size as usize]) {
+        if loc.descend_to_existing_byte(Tag::SymbolSize(size).byte()) {
+            if loc.descend_to_check(&v[..size as usize]) {
                 $recursive;
             }
-            loc.ascend(size as usize);
+            loc.ascend((size as usize) + 1); // The expression length + the e_byte
         }
-        loc.ascend_byte();
         for i in 0..size { last = last.offset(1); *last = *v.get_unchecked((size - i - 1) as usize) }
         last = last.offset(1); *last = size;
     };
@@ -392,22 +388,21 @@ fn referential_transition<Z : ZipperMoving + Zipper + ZipperAbsolutePath, F: FnM
 
         unroll!(ITER_VARIABLES $recursive);
 
-        if loc.descend_to_byte(Tag::SymbolSize(size).byte()) {
-            if loc.descend_to(&v[..size as usize]) {
+        if loc.descend_to_existing_byte(Tag::SymbolSize(size).byte()) {
+            if loc.descend_to_check(&v[..size as usize]) {
                 referential_transition(last, loc, references, introduced, f);
             }
-            loc.ascend(size as usize);
+            loc.ascend((size as usize) + 1); // The expression length + the e_byte
         }
-        loc.ascend_byte();
         for i in 0..size { last = last.offset(1); *last = *v.get_unchecked((size - i - 1) as usize) }
         last = last.offset(1); *last = size;
     };
     (ITER_ARITY $recursive:expr) => {
         let arity = *last; last = last.offset(-1);
-        if loc.descend_to_byte(Tag::Arity(arity).byte()) {
+        if loc.descend_to_existing_byte(Tag::Arity(arity).byte()) {
             referential_transition(last, loc, references, introduced, f);
+            loc.ascend_byte();
         }
-        loc.ascend_byte();
         last = last.offset(1); *last = arity;
     };
     (ITER_VAR_ARITY $recursive:expr) => {
@@ -415,10 +410,10 @@ fn referential_transition<Z : ZipperMoving + Zipper + ZipperAbsolutePath, F: FnM
 
         unroll!(ITER_VARIABLES $recursive);
 
-        if loc.descend_to_byte(Tag::Arity(arity).byte()) {
+        if loc.descend_to_existing_byte(Tag::Arity(arity).byte()) {
             referential_transition(last, loc, references, introduced, f);
+            loc.ascend_byte();
         }
-        loc.ascend_byte();
         last = last.offset(1); *last = arity;
     };
     (BEGIN_RANGE $recursive:expr) => {
@@ -1547,7 +1542,7 @@ pub(crate) fn dump_as_sexpr_impl<'s, RZ, W: std::io::Write>(
     max_write   : usize
 ) -> usize
     where
-    RZ : ZipperMoving + ZipperReadOnlySubtries<'s, ()> + ZipperAbsolutePath
+    RZ : ZipperMoving + ZipperReadOnlySubtries<'s, ()> + ZipperInfallibleSubtries<()> + ZipperAbsolutePath
 {
     // let max_write   : usize = 10;
     let mut buffer = [0u8; 4096];
@@ -1644,8 +1639,8 @@ impl DefaultSpace {
     pub fn backup_as_dag<OutFilePath : AsRef<std::path::Path>>(&self, path: OutFilePath) -> Result<(), std::io::Error> {
         let mut reader = self.new_reader(&[], &()).unwrap();
         let rz = self.read_zipper(&mut reader);
-        pathmap::serialization::write_trie("neo4j triples", rz,
-                                           |_v, _b| pathmap::serialization::ValueSlice::Read(&[]),
+        pathmap::experimental::serialization::write_trie("neo4j triples", rz,
+                                           |_v, _b| pathmap::experimental::serialization::ValueSlice::Read(&[]),
                                            path.as_ref()).map(|_| ())
     }
 
@@ -1707,7 +1702,7 @@ pub(crate) fn query_multi_impl<'s, E, RZ, F>
 ) -> usize
 where
     E: ExprTrait,
-    RZ: ZipperMoving + ZipperReadOnlySubtries<'s, ()> + ZipperAbsolutePath,
+    RZ: ZipperMoving + ZipperReadOnlySubtries<'s, ()> + ZipperInfallibleSubtries<()> + ZipperAbsolutePath,
     F: FnMut(Result<&[ExprEnv], (BTreeMap<(u8, u8), ExprEnv>, u8, u8, &[(u8, u8)])>, Expr) -> bool,
 {
         let make_prefix = |e:&Expr|  unsafe { e.prefix().unwrap_or_else(|_| e.span()).as_ref().unwrap() };
@@ -1867,7 +1862,7 @@ pub(crate) fn transform_multi_multi_impl<'s, E, RZ, WZ> (
 ) -> (usize, bool)
     where
     E: ExprTrait,
-    RZ : ZipperMoving + ZipperReadOnlySubtries<'s, ()> + ZipperAbsolutePath,
+    RZ : ZipperMoving + ZipperReadOnlySubtries<'s, ()> + ZipperInfallibleSubtries<()> + ZipperAbsolutePath,
     WZ : ZipperMoving + ZipperWriting<()>
 {
         let mut buffer = Vec::with_capacity(1 << 32);
